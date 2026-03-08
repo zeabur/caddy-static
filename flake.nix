@@ -1,11 +1,11 @@
 {
-  description = "A Nix-flake-based Go 1.24 development environment";
+  description = "A Nix-flake-based Go 1.26 development environment";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
   outputs = inputs:
     let
-      goVersion = 25; # Change this to update the whole stack
+      goVersion = 26; # Change this to update the whole stack
 
       supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forEachSupportedSystem = f: inputs.nixpkgs.lib.genAttrs supportedSystems (system: f {
