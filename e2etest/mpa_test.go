@@ -21,8 +21,8 @@ func TestMPA(t *testing.T) {
 			body        string
 			ct          string
 		}{
-			{"A1_root", "/", 200, nil, "SPA_INDEX", "text/html"},
-			{"A2_index_html", "/index.html", 200, nil, "SPA_INDEX", "text/html"},
+			{"A1_root", "/", 200, nil, "INDEX_CONTENT", "text/html"},
+			{"A2_index_html", "/index.html", 200, nil, "INDEX_CONTENT", "text/html"},
 			{"A3_about_no_ext", "/about", 200, nil, "ABOUT_PAGE", "text/html"},
 			{"A4_about_html", "/about.html", 200, nil, "ABOUT_PAGE", "text/html"},
 			{"A5_users_slash", "/users/", 200, nil, "USERS_INDEX", "text/html"},
@@ -232,7 +232,7 @@ func TestMPA(t *testing.T) {
 				assertResponse(t, res, expectation{
 					status:          404,
 					bodyContains:    "Not Found",
-					bodyNotContains: []string{"SPA_INDEX", "CUSTOM_404"},
+					bodyNotContains: []string{"INDEX_CONTENT", "CUSTOM_404"},
 					contentTypeNot:  "text/html",
 				})
 			})
@@ -371,8 +371,8 @@ func TestMPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			etag := res1.Header.Get("ETag")
-			io.ReadAll(res1.Body)
-			res1.Body.Close()
+			_, _ = io.ReadAll(res1.Body)
+			_ = res1.Body.Close()
 			if etag == "" {
 				t.Skip("no ETag header returned")
 			}
@@ -382,7 +382,7 @@ func TestMPA(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer res2.Body.Close()
+			defer func() { _ = res2.Body.Close() }()
 			if res2.StatusCode != http.StatusNotModified {
 				t.Errorf("G9 conditional: want 304, got %d", res2.StatusCode)
 			}

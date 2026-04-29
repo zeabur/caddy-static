@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -211,7 +212,7 @@ func TestSPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			getBody, _ := io.ReadAll(getRes.Body)
-			getRes.Body.Close()
+			_ = getRes.Body.Close()
 
 			req, _ := http.NewRequest("HEAD", endpoint+"/projects", nil)
 			headRes, err := client.Do(req)
@@ -219,7 +220,7 @@ func TestSPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			headBody, _ := io.ReadAll(headRes.Body)
-			headRes.Body.Close()
+			_ = headRes.Body.Close()
 
 			if headRes.StatusCode != 200 {
 				t.Errorf("HEAD status: want 200, got %d", headRes.StatusCode)
@@ -227,10 +228,11 @@ func TestSPA(t *testing.T) {
 			if len(headBody) != 0 {
 				t.Errorf("HEAD body: want empty, got %q", headBody)
 			}
-			cl := headRes.Header.Get("Content-Length")
-			if cl != "" && cl != "0" && int64(len(getBody)) > 0 {
-				// Content-Length should match GET body length when present
-				_ = cl
+			if cl := headRes.Header.Get("Content-Length"); cl != "" {
+				wantCL := strconv.Itoa(len(getBody))
+				if cl != wantCL {
+					t.Errorf("HEAD Content-Length: want %s, got %s", wantCL, cl)
+				}
 			}
 		})
 	})
@@ -426,8 +428,8 @@ func TestSPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			etag := res1.Header.Get("ETag")
-			io.ReadAll(res1.Body)
-			res1.Body.Close()
+			_, _ = io.ReadAll(res1.Body)
+			_ = res1.Body.Close()
 
 			if etag == "" {
 				t.Skip("no ETag header returned, skipping conditional request test")
@@ -520,6 +522,7 @@ func TestSPA(t *testing.T) {
 			if err != nil {
 				t.Fatalf("gzip reader: %v", err)
 			}
+			defer r.Close()
 			body, _ := io.ReadAll(r)
 			if !strings.Contains(string(body), "REAL_ASSET_JS") {
 				t.Errorf("decompressed body: want REAL_ASSET_JS, got %q", body)
