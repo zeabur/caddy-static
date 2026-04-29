@@ -39,8 +39,22 @@
         @hasMpa404 file /404.html
         handle @hasMpa404 {
             rewrite * /404.html
-            file_server {
-                status 404
+            # Fresh requests get an explicit 404; revalidation requests
+            # (If-None-Match / If-Modified-Since) reach file_server unmodified
+            # so http.ServeContent can return 304 instead of an empty 404.
+            @mpa404Fresh {
+                not header If-None-Match *
+                not header If-Modified-Since *
+            }
+            route {
+                handle @mpa404Fresh {
+                    file_server {
+                        status 404
+                    }
+                }
+                handle {
+                    file_server
+                }
             }
         }
 

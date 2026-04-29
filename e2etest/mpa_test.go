@@ -403,6 +403,40 @@ func TestMPA(t *testing.T) {
 				t.Errorf("G9 conditional: want 304, got %d", res2.StatusCode)
 			}
 		})
+
+		// G10: conditional request for MPA fallback route → 304 (cache revalidation)
+		t.Run("G10_conditional_mpa_fallback", func(t *testing.T) {
+			res1, err := client.Get(endpoint + "/projects")
+			if err != nil {
+				t.Fatal(err)
+			}
+			etag := res1.Header.Get("ETag")
+			if _, err := io.ReadAll(res1.Body); err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if err := res1.Body.Close(); err != nil {
+				t.Fatalf("closing response body: %v", err)
+			}
+
+			if etag == "" {
+				t.Skip("no ETag header returned, skipping conditional request test")
+			}
+
+			req, _ := http.NewRequest("GET", endpoint+"/projects", nil)
+			req.Header.Set("If-None-Match", etag)
+			res2, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := res2.Body.Close(); err != nil {
+					t.Errorf("closing response body: %v", err)
+				}
+			}()
+			if res2.StatusCode != http.StatusNotModified {
+				t.Errorf("G10 conditional MPA fallback: want 304, got %d", res2.StatusCode)
+			}
+		})
 	})
 
 	t.Run("H_Methods", func(t *testing.T) {
