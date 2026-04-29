@@ -39,6 +39,10 @@
         @hasMpa404 file /404.html
         handle @hasMpa404 {
             rewrite * /404.html
+            # Strip range headers so http.ServeContent always serves the full
+            # file; the status 404 override then applies to a clean 200.
+            request_header -Range
+            request_header -If-Range
             # Fresh requests get an explicit 404; revalidation requests
             # (If-None-Match / If-Modified-Since) reach file_server unmodified
             # so http.ServeContent can return 304 instead of an empty 404.

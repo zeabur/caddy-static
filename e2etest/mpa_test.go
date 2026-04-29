@@ -373,6 +373,30 @@ func TestMPA(t *testing.T) {
 			t.Logf("G7 long path → status %d", res.StatusCode)
 		})
 
+		// G8b: Range header on MPA fallback → 404, full body, no Content-Range
+		t.Run("G8b_range_mpa_fallback", func(t *testing.T) {
+			req, _ := http.NewRequest("GET", endpoint+"/projects", nil)
+			req.Header.Set("Range", "bytes=0-9")
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer res.Body.Close()
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if res.StatusCode != http.StatusNotFound {
+				t.Errorf("G8b Range MPA fallback: want 404, got %d", res.StatusCode)
+			}
+			if !strings.Contains(string(body), "CUSTOM_404") {
+				t.Errorf("G8b body: want full CUSTOM_404 page, got %q", body)
+			}
+			if cr := res.Header.Get("Content-Range"); cr != "" {
+				t.Errorf("G8b Content-Range must be absent, got %q", cr)
+			}
+		})
+
 		t.Run("G9_conditional", func(t *testing.T) {
 			res1, err := client.Get(endpoint + "/")
 			if err != nil {
