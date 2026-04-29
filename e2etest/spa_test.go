@@ -86,9 +86,9 @@ func TestSPA(t *testing.T) {
 			}
 			defer res.Body.Close()
 			assertResponse(t, res, expectation{
-				status:      200,
+				status:       200,
 				bodyContains: "REAL_ASSET_CSS",
-				contentType: "text/css",
+				contentType:  "text/css",
 			})
 		})
 
@@ -431,6 +431,31 @@ func TestSPA(t *testing.T) {
 			}
 		})
 
+		// G8b: Range header for SPA fallback route
+		t.Run("G8b_range_spa_fallback", func(t *testing.T) {
+			req, _ := http.NewRequest("GET", endpoint+"/projects", nil)
+			req.Header.Set("Range", "bytes=0-9")
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer res.Body.Close()
+
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if res.StatusCode != http.StatusPartialContent {
+				t.Errorf("G8b Range SPA fallback: want 206, got %d (body: %q)", res.StatusCode, body)
+			}
+			if got, want := res.Header.Get("Content-Range"), "bytes 0-9/51"; got != want {
+				t.Errorf("G8b Content-Range: want %q, got %q", want, got)
+			}
+			if got, want := string(body), "<!DOCTYPE "; got != want {
+				t.Errorf("G8b body: want %q, got %q", want, got)
+			}
+		})
+
 		// G9: conditional request with ETag
 		t.Run("G9_conditional", func(t *testing.T) {
 			res1, err := client.Get(endpoint + "/")
@@ -462,6 +487,40 @@ func TestSPA(t *testing.T) {
 			}()
 			if res2.StatusCode != http.StatusNotModified {
 				t.Errorf("G9 conditional: want 304, got %d", res2.StatusCode)
+			}
+		})
+
+		// G10: conditional request for SPA fallback route
+		t.Run("G10_conditional_spa_fallback", func(t *testing.T) {
+			res1, err := client.Get(endpoint + "/projects")
+			if err != nil {
+				t.Fatal(err)
+			}
+			etag := res1.Header.Get("ETag")
+			if _, err := io.ReadAll(res1.Body); err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if err := res1.Body.Close(); err != nil {
+				t.Fatalf("closing response body: %v", err)
+			}
+
+			if etag == "" {
+				t.Skip("no ETag header returned, skipping conditional request test")
+			}
+
+			req, _ := http.NewRequest("GET", endpoint+"/projects", nil)
+			req.Header.Set("If-None-Match", etag)
+			res2, err := client.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := res2.Body.Close(); err != nil {
+					t.Errorf("closing response body: %v", err)
+				}
+			}()
+			if res2.StatusCode != http.StatusNotModified {
+				t.Errorf("G10 conditional SPA fallback: want 304, got %d", res2.StatusCode)
 			}
 		})
 	})

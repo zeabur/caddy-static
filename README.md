@@ -23,18 +23,25 @@ MAJOR=1 MINOR=0 PATCH=0 bash build.sh
 The server listens on `:8080` and serves files from `/usr/share/caddy`. It auto-detects
 whether the site is an SPA or an MPA based on the presence of `/404.html` in the site root.
 
-### File serving (`try_files`)
+### File serving and fallbacks
 
 Requests are matched in order:
-1. The path as-is (e.g. `/about.html`)
-2. The path with a `.html` suffix (e.g. `/about` → `/about.html`)
-3. A directory index (e.g. `/users/` → `/users/index.html`)
+1. Sensitive paths are blocked before any file lookup.
+2. Asset requests are served as real files only.
+3. Document requests are matched against:
+   - The path as-is (e.g. `/about.html`)
+   - The path with a `.html` suffix (e.g. `/about` → `/about.html`)
+   - A directory index (e.g. `/users/` → `/users/index.html`)
+4. Document misses fall back according to SPA/MPA mode.
 
-If none of the above match, a 404 is emitted and the error handler takes over.
+This avoids using `file_server status 200` for SPA fallbacks. Caddy's file server
+uses `http.ServeContent`, which can correctly return `304 Not Modified` for
+`If-None-Match` and `206 Partial Content` for range requests. A forced
+`status 200` wrapper would overwrite those status codes.
 
-### 404 error handling
+### Missing request handling
 
-The `handle_errors 404` block decides what to do with unmatched requests:
+The route decides what to do with unmatched requests:
 
 **Asset requests** — paths whose final segment ends with a non-`.html`/`.htm` extension
 (matched by `\.[A-Za-z0-9]+$`) always receive a plain-text `404 Not Found` response.
@@ -49,6 +56,8 @@ They never fall back to `index.html` or `404.html`. This prevents broken `<scrip
 | No | **SPA** | Serve `/index.html` with HTTP status 200 |
 
 The SPA status-200 return is intentional: client-side routers need a 200 to bootstrap.
+It is produced by serving `/index.html` normally after an internal rewrite, not by
+forcing `file_server status 200`, so conditional requests can still return 304.
 
 ### Sensitive paths
 
@@ -78,10 +87,10 @@ The E2E tests require the `zeabur/caddy-static` Docker image. Build it first:
 docker build -t zeabur/caddy-static .
 ```
 
-Then run the full suite:
+Then run the full suite without the Go test cache:
 
 ```bash
-go test -v ./e2etest
+go test -count=1 -v ./e2etest
 ```
 
 ### Test inventory
@@ -98,7 +107,7 @@ go test -v ./e2etest
 
 #### `TestSPA` — SPA mode (no `404.html` in site root)
 
-**A — `try_files` hits (real files served directly)**
+**A — Real file hits**
 
 | Test | Request | Expected |
 |---|---|---|
@@ -173,6 +182,7 @@ All 20 paths return 404 with plain-text `Not Found`, `Content-Type` ≠ `text/ht
 | G7 | `GET /` + 4 KB path | logged — no crash required |
 | G8 | `GET /` + `Range: bytes=0-9` | 206 or 200 |
 | G9 | `GET /` + `If-None-Match: <etag>` | 304 (skipped if no ETag returned) |
+| G10 | `GET /projects` + `If-None-Match: <etag>` | 304 for SPA fallback `index.html` (skipped if no ETag returned) |
 
 **H — HTTP methods**
 
@@ -199,13 +209,14 @@ All 20 paths return 404 with plain-text `Not Found`, `Content-Type` ≠ `text/ht
 | Test | Request | Expected | Regression |
 |---|---|---|---|
 | J1 | `GET /projects` | **200**, body `SPA_INDEX` | `handle_errors` used to inherit `=404` status |
+| G10 | `GET /projects` + `If-None-Match: <etag>` | **304** | `file_server status 200` used to override conditional 304 on SPA fallback |
 | J3 | `GET /assets/missing.js` | **404**, plain `Not Found`, ≠ HTML | missing assets used to fall back to `index.html` at 200 |
 
 ---
 
 #### `TestMPA` — MPA mode (`404.html` present in site root)
 
-**A — `try_files` hits** — identical to SPA A1–A14 (existing files always served directly).
+**A — Real file hits** — identical to SPA A1–A14 (existing files always served directly).
 
 **B — Sensitive path blocking** — identical to SPA B1–B8.
 
