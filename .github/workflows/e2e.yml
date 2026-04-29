@@ -1,0 +1,22 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build image
+        run: docker build -t zeabur/caddy-static .
+
+      - name: Run e2e tests
+        run: go test -v -timeout 120s ./e2etest
