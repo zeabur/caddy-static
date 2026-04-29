@@ -238,7 +238,14 @@ All 20 paths return 404 with plain-text `Not Found`, `Content-Type` ≠ `text/ht
 
 Same classification logic as SPA. Document misses show `CUSTOM_404` at 404; asset misses return plain 404 without `CUSTOM_404`.
 
-**G — URL and path edge cases** — G3, G7, G9 (same assertions as SPA).
+**G — URL and path edge cases**
+
+G3, G7, G9 same assertions as SPA. MPA-specific additions:
+
+| Test | Request | Expected |
+|---|---|---|
+| G8b | `GET /projects` + `Range: bytes=0-9` | **404**, full `CUSTOM_404` body, no `Content-Range` header |
+| G10 | `GET /projects` + `If-None-Match: <etag>` | **304** for cache revalidation (skipped if no ETag returned) |
 
 **H — HTTP methods**
 
@@ -262,3 +269,5 @@ Same classification logic as SPA. Document misses show `CUSTOM_404` at 404; asse
 |---|---|---|---|
 | J2 | `GET /projects` | **404**, body `CUSTOM_404` | `try_files` used to rewrite to `404.html` and serve it at 200 |
 | J4 | `GET /assets/missing.js` | **404**, plain `Not Found`, ≠ `CUSTOM_404` | missing assets used to fall back to `404.html` |
+| G8b | `GET /projects` + `Range: bytes=0-9` | **404**, full body, no `Content-Range` | `file_server { status 404 }` used to pass Range through, producing a truncated body and a spurious `Content-Range` header |
+| G10 | `GET /projects` + `If-None-Match: <etag>` | **304** | `file_server { status 404 }` used to override 304 to an empty 404, breaking cache revalidation |
