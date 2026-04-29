@@ -1,6 +1,7 @@
 package e2etest
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -42,7 +43,11 @@ func TestMPA(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer res.Body.Close()
+				defer func() {
+					if err := res.Body.Close(); err != nil {
+						t.Fatalf("closing response body: %v", err)
+					}
+				}()
 				assertResponse(t, res, expectation{
 					status:       tc.status,
 					statusOneOf:  tc.statusOneOf,
@@ -204,7 +209,10 @@ func TestMPA(t *testing.T) {
 
 		// D8: HEAD /projects → 404 empty body
 		t.Run("D8_head_mpa_route", func(t *testing.T) {
-			req, _ := http.NewRequest("HEAD", endpoint+"/projects", nil)
+			req, err := http.NewRequestWithContext(context.Background(), "HEAD", endpoint+"/projects", nil)
+			if err != nil {
+				t.Fatalf("create request: %v", err)
+			}
 			res, err := client.Do(req)
 			if err != nil {
 				t.Fatal(err)
@@ -371,8 +379,12 @@ func TestMPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			etag := res1.Header.Get("ETag")
-			_, _ = io.ReadAll(res1.Body)
-			_ = res1.Body.Close()
+			if _, err := io.ReadAll(res1.Body); err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if err := res1.Body.Close(); err != nil {
+				t.Fatalf("closing response body: %v", err)
+			}
 			if etag == "" {
 				t.Skip("no ETag header returned")
 			}
@@ -382,7 +394,11 @@ func TestMPA(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer func() { _ = res2.Body.Close() }()
+			defer func() {
+				if err := res2.Body.Close(); err != nil {
+					t.Errorf("closing response body: %v", err)
+				}
+			}()
 			if res2.StatusCode != http.StatusNotModified {
 				t.Errorf("G9 conditional: want 304, got %d", res2.StatusCode)
 			}
@@ -408,7 +424,10 @@ func TestMPA(t *testing.T) {
 
 		// H3: HEAD /projects → 404
 		t.Run("H3_head_mpa_route", func(t *testing.T) {
-			req, _ := http.NewRequest("HEAD", endpoint+"/projects", nil)
+			req, err := http.NewRequestWithContext(context.Background(), "HEAD", endpoint+"/projects", nil)
+			if err != nil {
+				t.Fatalf("create request: %v", err)
+			}
 			res, err := client.Do(req)
 			if err != nil {
 				t.Fatal(err)

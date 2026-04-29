@@ -211,16 +211,26 @@ func TestSPA(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			getBody, _ := io.ReadAll(getRes.Body)
-			_ = getRes.Body.Close()
+			getBody, err := io.ReadAll(getRes.Body)
+			if err != nil {
+				t.Fatalf("read response body: %v", err)
+			}
+			if err := getRes.Body.Close(); err != nil {
+				t.Fatalf("close response body: %v", err)
+			}
 
 			req, _ := http.NewRequest("HEAD", endpoint+"/projects", nil)
 			headRes, err := client.Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
-			headBody, _ := io.ReadAll(headRes.Body)
-			_ = headRes.Body.Close()
+			headBody, err := io.ReadAll(headRes.Body)
+			if err != nil {
+				t.Fatalf("read response body: %v", err)
+			}
+			if err := headRes.Body.Close(); err != nil {
+				t.Fatalf("close response body: %v", err)
+			}
 
 			if headRes.StatusCode != 200 {
 				t.Errorf("HEAD status: want 200, got %d", headRes.StatusCode)
@@ -428,8 +438,12 @@ func TestSPA(t *testing.T) {
 				t.Fatal(err)
 			}
 			etag := res1.Header.Get("ETag")
-			_, _ = io.ReadAll(res1.Body)
-			_ = res1.Body.Close()
+			if _, err := io.ReadAll(res1.Body); err != nil {
+				t.Fatalf("reading response body: %v", err)
+			}
+			if err := res1.Body.Close(); err != nil {
+				t.Fatalf("closing response body: %v", err)
+			}
 
 			if etag == "" {
 				t.Skip("no ETag header returned, skipping conditional request test")
@@ -441,7 +455,11 @@ func TestSPA(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer res2.Body.Close()
+			defer func() {
+				if err := res2.Body.Close(); err != nil {
+					t.Errorf("closing response body: %v", err)
+				}
+			}()
 			if res2.StatusCode != http.StatusNotModified {
 				t.Errorf("G9 conditional: want 304, got %d", res2.StatusCode)
 			}
@@ -522,7 +540,11 @@ func TestSPA(t *testing.T) {
 			if err != nil {
 				t.Fatalf("gzip reader: %v", err)
 			}
-			defer r.Close()
+			defer func() {
+				if err := r.Close(); err != nil {
+					t.Fatalf("gzip reader Close failed: %v", err)
+				}
+			}()
 			body, _ := io.ReadAll(r)
 			if !strings.Contains(string(body), "REAL_ASSET_JS") {
 				t.Errorf("decompressed body: want REAL_ASSET_JS, got %q", body)
