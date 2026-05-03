@@ -1,0 +1,1 @@
+<?php // SHOULD_NEVER_LEAK_VENDOR ?>

@@ -1,0 +1,1 @@
+// REAL_ASSET_JS

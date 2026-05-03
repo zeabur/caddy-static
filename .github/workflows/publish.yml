@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate strict semver tag
+        run: |
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected tag format: vMAJOR.MINOR.PATCH, got: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+      - name: Parse version from tag
+        id: version
+        # tag format: v1.2.3
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "full=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "major=${TAG%%.*}" >> "$GITHUB_OUTPUT"
+          echo "minor=${TAG%.*}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            zeabur/caddy-static:latest
+            zeabur/caddy-static:${{ steps.version.outputs.full }}
+            zeabur/caddy-static:${{ steps.version.outputs.minor }}
+            zeabur/caddy-static:${{ steps.version.outputs.major }}

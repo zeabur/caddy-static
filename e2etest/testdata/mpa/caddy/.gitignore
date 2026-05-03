@@ -1,0 +1,7 @@
+# Force-include all test fixture files that global/parent gitignores might exclude.
+!.venv/
+!.venv/**
+!.well-known/
+!.well-known/**
+!node_modules/
+!node_modules/**

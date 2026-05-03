@@ -11,9 +11,25 @@ import (
 
 func TestCaddyContainer(t *testing.T) (c *testcontainers.DockerContainer, endpoint string) {
 	t.Helper()
+	exampleDir, err := filepath.Abs("../examples/caddy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return TestCaddyContainerWithFixture(t, exampleDir)
+}
+
+func TestCaddyContainerWithFixture(t *testing.T, fixtureDir string) (c *testcontainers.DockerContainer, endpoint string) {
+	t.Helper()
 
 	c, err := testcontainers.Run(context.Background(), "zeabur/caddy-static",
-		testcontainers.CustomizeRequestOption(copyCaddyExamples),
+		testcontainers.CustomizeRequestOption(func(request *testcontainers.GenericContainerRequest) error {
+			request.Files = append(request.Files, testcontainers.ContainerFile{
+				HostFilePath:      fixtureDir,
+				ContainerFilePath: "/usr/share/caddy",
+				FileMode:          0o755,
+			})
+			return nil
+		}),
 		testcontainers.CustomizeRequestOption(func(request *testcontainers.GenericContainerRequest) error {
 			request.WaitingFor = wait.ForLog("serving initial configuration")
 			return nil
@@ -35,19 +51,4 @@ func TestCaddyContainer(t *testing.T) (c *testcontainers.DockerContainer, endpoi
 	}
 
 	return c, endpoint
-}
-
-func copyCaddyExamples(request *testcontainers.GenericContainerRequest) error {
-	exampleDir, err := filepath.Abs("../examples/caddy")
-	if err != nil {
-		return err
-	}
-
-	request.Files = append(request.Files, testcontainers.ContainerFile{
-		HostFilePath:      exampleDir,
-		ContainerFilePath: "/usr/share/caddy",
-		FileMode:          0o755,
-	})
-
-	return nil
 }
