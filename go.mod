@@ -3,7 +3,7 @@ module github.com/zeabur/caddy-extension
 go 1.25.8
 
 require (
-	github.com/caddyserver/caddy/v2 v2.11.3
+	github.com/caddyserver/caddy/v2 v2.11.4
 	github.com/testcontainers/testcontainers-go v0.42.0
 )
 
